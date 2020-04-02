@@ -56,22 +56,26 @@
 			<integer>1</integer>
 			<key>contentSelection</key>
 			<data>
-			YnBsaXN0MDDUAQIDBAUGJCVYJHZlcnNpb25YJG9iamVjdHNZJGFy
-			Y2hpdmVyVCR0b3ASAAGGoKgHCBMUFRYaIVUkbnVsbNMJCgsMDxJX
-			TlMua2V5c1pOUy5vYmplY3RzViRjbGFzc6INDoACgAOiEBGABIAF
-			gAdUdHlwZVRyb3dzXxAdU2VsZWN0aW9uRGV0YWlsVHlwZU5TSW5k
-			ZXhTZXTSFwsYGVxOU1JhbmdlQ291bnQQAIAG0hscHR5aJGNsYXNz
-			bmFtZVgkY2xhc3Nlc1pOU0luZGV4U2V0oh8gWk5TSW5kZXhTZXRY
-			TlNPYmplY3TSGxwiI1xOU0RpY3Rpb25hcnmiIiBfEA9OU0tleWVk
-			QXJjaGl2ZXLRJidUZGF0YYABAAgAEQAaACMALQAyADcAQABGAE0A
-			VQBgAGcAagBsAG4AcQBzAHUAdwB8AIEAoQCmALMAtQC3ALwAxwDQ
-			ANsA3gDpAPIA9wEEAQcBGQEcASEAAAAAAAACAQAAAAAAAAAoAAAA
-			AAAAAAAAAAAAAAABIw==
+			YnBsaXN0MDDUAQIDBAUGNjdYJHZlcnNpb25YJG9iamVjdHNZJGFy
+			Y2hpdmVyVCR0b3ASAAGGoK0HCBUWFxgZHSQoLDA0VSRudWxs0wkK
+			CwwQFFdOUy5rZXlzWk5TLm9iamVjdHNWJGNsYXNzow0OD4ACgAOA
+			BKMREhOABYAGgAiADFR0eXBlVHJvd3NUa2V5c18QJlNlbGVjdGlv
+			bkRldGFpbFR5cGVQcmltYXJ5S2V5ZWREZXRhaWxz0wkKCxobHKCg
+			gAfSHh8gIVokY2xhc3NuYW1lWCRjbGFzc2VzXxATTlNNdXRhYmxl
+			RGljdGlvbmFyeaMgIiNcTlNEaWN0aW9uYXJ5WE5TT2JqZWN00goL
+			JSehJoAJgAvSCykqK1lOUy5zdHJpbmeAClphY2NvdW50X2lk0h4f
+			LS5fEA9OU011dGFibGVTdHJpbmejLS8jWE5TU3RyaW5n0h4fMTJe
+			TlNNdXRhYmxlQXJyYXmjMTMjV05TQXJyYXnSHh8iNaIiI18QD05T
+			S2V5ZWRBcmNoaXZlctE4OVRkYXRhgAEACAARABoAIwAtADIANwBF
+			AEsAUgBaAGUAbABwAHIAdAB2AHoAfAB+AIAAggCHAIwAkQC6AMEA
+			wgDDAMUAygDVAN4A9AD4AQUBDgETARUBFwEZAR4BKAEqATUBOgFM
+			AVABWQFeAW0BcQF5AX4BgQGTAZYBmwAAAAAAAAIBAAAAAAAAADoA
+			AAAAAAAAAAAAAAAAAAGd
 			</data>
 			<key>contentSortColIsAsc</key>
 			<true/>
 			<key>contentViewport</key>
-			<string>{{0, 0}, {1067, 629}}</string>
+			<string>{{0, 0}, {1067, 653}}</string>
 			<key>isToolbarVisible</key>
 			<true/>
 			<key>queries</key>
@@ -101,12 +105,34 @@ having diff &gt; 1
 order by 1;
 
 # Challenge 3 - Best Selling Districts
-select account.account_id, amount, district_id
-from account
-inner join loan on account.account_id = loan.account_id
-order by 2 desc;
+
+	## 1st way
+	select district_id, max(amount)
+	from account
+	inner join loan on account.account_id = loan.account_id
+	group by 1
+	order by 2 desc;
+	
+	## 2nd way with the max amount and the account_id that refers to the max
+	create table district_loan
+	
+	select district_id, amount, account.account_id
+	from account
+	inner join loan on account.account_id = loan.account_id;
+	
+	with max_loan as (
+	select district_id, max(amount) as amount, group_concat(account_id) as accounts
+	from district_loan
+	group by 1)
+	
+	select max_loan.district_id, max_loan.amount, account_id 
+	from max_loan
+	inner join district_loan on max_loan.district_id=district_loan.district_id
+	where max_loan.amount=district_loan.amount
+	order by 2;
 
 #Challenge 4 - Best Selling Districts UPDATED
+
 select district_id, sum(amount) as total_loan_paid
 from account
 inner join loan on account.account_id = loan.account_id
@@ -115,18 +141,35 @@ order by 2 desc;
 
 # Challenge 5 - Best Selling Districts UPDATED
 
-	# not finished yet. Need tomorrow's class
-select 
-	district_id, 
-	avg(amount) as avg_loan_paid
-from account
-inner join loan on account.account_id = loan.account_id
-group by 1
-order by 2 desc;
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount as median_amount, 
+		account_id,
+		ranking as median_ranking
+	from ranks
+	where exists(
+		select district_id, ceil(count(amount)/2) as median_ind 
+		from district_loan
+		group by 1
+		having median_ind=ranks.ranking and district_loan.district_id=ranks.district_id);
+
 
 # Bonus Challenge - Salary/Loan balance
 
-	# not sure about this one - will check tomorrow
+	# not sure about this one
 select 
 	district_id, 
 	round(avg(loan.amount),2) as avg_loan,
@@ -142,7 +185,7 @@ where
 group by 1
 order by 2 desc;</string>
 			<key>table</key>
-			<string>trans</string>
+			<string>account</string>
 			<key>view</key>
 			<string>SP_VIEW_CUSTOMQUERY</string>
 			<key>windowVerticalDividerPosition</key>
@@ -157,7 +200,36 @@ order by 2 desc;</string>
 	<array/>
 	<key>queryHistory</key>
 	<array>
-		<string>select 
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount as median_amount, 
+		account_id,
+		ranking as median_ranking
+	from ranks
+	where exists(
+		select district_id, ceil(count(amount)/2) as median_ind 
+		from district_loan
+		group by 1
+		having median_ind=ranks.ranking and district_loan.district_id=ranks.district_id)</string>
+		<string># Bonus Challenge - Salary/Loan balance
+
+	# not sure about this one
+select 
 	district_id, 
 	round(avg(loan.amount),2) as avg_loan,
 	round(avg(trans.amount),2) as avg_salary,
@@ -171,139 +243,361 @@ where
 	and `order`.k_symbol = 'POJISTNE'
 group by 1
 order by 2 desc</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount as median_amount, 
+		account_id,
+		ranking as median_ranking
+	from ranks
+	where exists(
+		select district_id, ceil(count(amount)/2) as median_ind 
+		from district_loan
+		group by 1
+		having median_ind=ranks.ranking and district_loan.district_id=ranks.district_id)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount as median_amount, 
+		account_id,
+		ranking as median_rank
+	from ranks
+	where exists(
+		select district_id, ceil(count(amount)/2) as median_ind 
+		from district_loan
+		group by 1
+		having median_ind=ranks.ranking and district_loan.district_id=ranks.district_id)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount, 
+		account_id,
+		ranking
+	from ranks
+	where exists(
+		select district_id, ceil(count(amount)/2) as median_ind 
+		from district_loan
+		group by 1
+		having median_ind=ranks.ranking and district_loan.district_id=ranks.district_id)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount, 
+		account_id,
+		ranking
+	from ranks
+	where exists(
+		select district_id, ceil(count(amount)/2) as median_ind 
+		from district_loan
+		group by 1
+		having median_ind=ranks.ranking)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount, 
+		account_id,
+		ranking
+	from ranks
+	where exists(
+		select district_id, ceil(count(amount)/2) as median_ind 
+		from district_loan
+		having median_ind=ranks.ranking
+		group by 1)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount, 
+		account_id,
+		ranking
+	from ranks
+	where exists(
+		select district_id, ceil(max(ranking)/2) as median_ind 
+		from ranks
+		having median_ind=ranks.ranking
+		group by 1)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount, 
+		account_id,
+		ranking
+	from ranks
+	where exists(
+		select district_id, ceil(max(ranking)/2) as median_ind 
+		from ranks
+		where median_ind=ranks.ranking
+		group by 1)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranks as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select 
+		district_id, 
+		amount, 
+		account_id,
+		ranks
+	from ranking
+	where exists(
+		select district_id, ceil(max(ranking)/2) as median_ind 
+		from ranking
+		where median_ind=ranking.ranks
+		group by 1)</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranking as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select district_id, ceil(max(ranking)/2) as median_ind 
+	from ranking
+	group by 1</string>
+		<string>select district_id, ceil(max(ranking)/2) as median_ind 
+	from ranking
+	group by 1</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranking as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select district_id, max(ranking) as max_ind 
+	from ranking
+	group by 1</string>
+		<string>select district_id, max(ranking) as max_ind 
+	from ranking
+	group by 1</string>
 		<string>select 
-	district_id, 
-	round(avg(loan.amount),2) as avg_loan,
-	round(avg(trans.amount),2) as avg_salary,
-	round(avg(`order`.amount),2) as avg_insurrance
-from account
-inner join loan on account.account_id = loan.account_id
-inner join trans on account.account_id = trans.account_id
-inner join `order` on account.account_id = `order`.account_id
-where 
-	type = 'PRIJEM'
-	and `order`.k_symbol = 'POJISTNE'
-group by 1
-order by 2 desc</string>
-		<string>select 
-	district_id, 
-	round(avg(loan.amount),2) as avg_loan,
-	round(avg(trans.amount),2) as avg_salary,
-	round(avg(`order`.amount),2) as insurrance_order
-from account
-inner join loan on account.account_id = loan.account_id
-inner join trans on account.account_id = trans.account_id
-inner join `order` on account.account_id = `order`.account_id
-where 
-	type = 'PRIJEM'
-	and `order`.k_symbol = 'POJISTNE'
-group by 1
-order by 2 desc</string>
-		<string>select 
-	district_id, 
-	avg(loan.amount) as avg_loan,
-	avg(trans.amount) as avg_salary,
-	avg(`order`.amount) as insurrance_order
-from account
-inner join loan on account.account_id = loan.account_id
-inner join trans on account.account_id = trans.account_id
-inner join `order` on account.account_id = `order`.account_id
-where 
-	type = 'PRIJEM'
-	and `order`.k_symbol = 'POJISTNE'
-group by 1
-order by 2 desc</string>
-		<string>select district_id, avg(`order`.amount) as insurrance_order
-from account
-inner join `order` on account.account_id = `order`.account_id
-where `order`.k_symbol = 'POJISTNE'
-group by 1</string>
-		<string>select district_id, account.account_id, `order`.amount as insurrance_order
-from account
-inner join `order` on account.account_id = `order`.account_id
-where `order`.k_symbol = 'POJISTNE'
-order by 1,2</string>
-		<string>select district_id, account.account_id, trans.amount as insurrance_trans, `order`.amount as insurrance_order
-from account
-inner join `order` on account.account_id = `order`.account_id
-where `order`.k_symbol = 'POJISTNE'
-order by 1,2</string>
-		<string>select district_id, account.account_id, trans.amount as insurrance_trans, `order`.amount as insurrance_order
-from account
-inner join trans on account.account_id = trans.account_id
-inner join `order` on account.account_id = `order`.account_id
-where trans.k_symbol = 'POJISTNE' and `order`.k_symbol = 'POJISTNE'
-order by 1,2</string>
-		<string>select district_id, account.account_id, trans.amount as insurrance_trans, `order`.amount as insurrance_order
-from account
-inner join trans on account.account_id = trans.account_id
-inner join `order` on account.account_id = `order`.account_id
-where k_symbol = 'POJISTNE'
-order by 1,2</string>
-		<string>select district_id, account.account_id, amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'
-order by 1,2</string>
-		<string>select district_id, account.account_id, amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'
-order by 1</string>
-		<string>select district_id, account.account_id, amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'
-group by 1,3
-order by 1</string>
-		<string>select district_id, count(account.account_id), amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'
-group by 1,3
-order by 1</string>
-		<string>select district_id, count(distinct account.account_id), amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'
-group by 1,3
-order by 1</string>
-		<string>select district_id, count(account.account_id), amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'
-group by 1,3</string>
-		<string>select district_id, count(account.account_id), amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'</string>
-		<string>select district_id, account.account_id, amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'</string>
-		<string>select district_id, account_id, amount
-from account
-inner join trans on account.account_id = trans.account_id
-where k_symbol = 'POJISTNE'</string>
-		<string>select 
-	district_id, 
-	avg(loan.amount) as avg_loan,
-	avg(trans.amount) as avg_salary
-from account
-inner join loan on account.account_id = loan.account_id
-inner join trans on account.account_id = trans.account_id
-where type = 'PRIJEM'
-group by 1
-order by 2 desc</string>
-		<string>select 
-	district_id, 
-	avg(loan.amount) as avg_loan,
-	avg(trans.amount) as avg_salary
-inner join loan on account.account_id = loan.account_id
-inner join trans on account.account_id = trans.account_id
-where type = 'PRIJEM'
-group by 1
-order by 2 desc</string>
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranking as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select district_id, ceil(max(ranking)/2) as median_ind 
+	from ranking</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranking as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select district_id, ceil(ranking/2) as median_ind 
+	from ranking</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranking as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select district_id, ranking/2 as median_ind 
+	from ranking</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranking as (
+	select 
+		dl_1.district_id, 
+		dl_1.amount, 
+		dl_1.account_id, 
+		count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select ranking/2 as median_ind from ranking</string>
+		<string># Challenge 5 - Best Selling Districts UPDATED
+
+	# not finished yet. Need tomorrow's class
+	with ranking as (
+	select dl_1.district_id, dl_1.amount, dl_1.account_id, count(dl_2.amount) as ranking
+	from district_loan as dl_1, district_loan as dl_2
+	where 
+		dl_1.amount &lt;= dl_2.amount 
+		and dl_1.district_id = dl_2.district_id
+	group by 1,2,3
+	order by 1,4)
+	
+	select * from ranking</string>
 	</array>
 	<key>rdbms_type</key>
 	<string>mysql</string>
